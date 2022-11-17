@@ -13,11 +13,10 @@ import com.bam.mysocialapp.ui.posts.models.Post
 
 class PostsFragment : Fragment() {
 
-    private var _binding: FragmentPostsBinding? = null
+    private lateinit var _binding: FragmentPostsBinding
+    private lateinit var viewModel: PostsViewModel
 
-    // This property is only valid between onCreateView and
-    // onDestroyView.
-    private val binding get() = _binding!!
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -26,7 +25,7 @@ class PostsFragment : Fragment() {
     ): View {
 
         _binding = FragmentPostsBinding.inflate(inflater, container, false)
-        return binding.root
+        return _binding.root
     }
 
 
@@ -34,10 +33,15 @@ class PostsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val adapter = PostListAdapter()
-        binding.postsListRecyclerView.adapter = adapter
-        val postsViewModel = ViewModelProvider(this)[PostsViewModel::class.java]
-        postsViewModel.posts.observe(requireActivity()) {
-            if (it != null) {
+        adapter.itemClick {
+
+        }
+
+        _binding.postsListRecyclerView.adapter = adapter
+
+        viewModel = ViewModelProvider(this)[PostsViewModel::class.java]
+        viewModel.posts.observe(requireActivity()) {
+           if (it != null) {
                 adapter.items = it
             }
         }
@@ -46,6 +50,6 @@ class PostsFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        _binding = null
+        viewModel.saveInCache()
     }
 }

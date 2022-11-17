@@ -1,30 +1,52 @@
 package com.bam.mysocialapp.ui.posts.models
 
-import androidx.lifecycle.MutableLiveData
+import com.bam.mysocialapp.db.PostEntityDao
 import com.bam.mysocialapp.ui.posts.restapi.PostService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.*
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
-class PostsRepository(private val postService: PostService) {
+class PostsRepository(
+    private val postService: PostService,
+    private val postEntityDao: PostEntityDao
+) {
 
-    private var posts: MutableLiveData<List<Post>?> = MutableLiveData()
 
+    suspend fun getAll(): Flow<List<Post>?> {
+        return channelFlow {
+            send(fromLocalCache())
+            fromRemove().collectLatest {
+                send(it)
+            }
+        }.flowOn(Dispatchers.IO)
+    }
 
-    fun getAll(): MutableLiveData<List<Post>?> {
-        postService.getAll().enqueue(object : Callback<List<Post>> {
-            override fun onResponse(call: Call<List<Post>>, response: Response<List<Post>>) {
-                val result = response.body()
-                if (result != null){
-                    posts.value = result
+    private fun fromRemove(): Flow<List<Post>?> {
+        return callbackFlow {
+
+            val callBack = object : Callback<List<Post>>{
+                override fun onResponse(call: Call<List<Post>>, response: Response<List<Post>>) {
+                    trySend(response.body())
+                }
+
+                override fun onFailure(call: Call<List<Post>>, t: Throwable) {
+                    trySend(null)
                 }
             }
-            override fun onFailure(call: Call<List<Post>>, t: Throwable) {
-
+            postService.getAll().enqueue(callBack)
+            awaitClose{
+                cancel()
             }
-        })
-
-        return posts
+        }
     }
+
+    private suspend fun fromLocalCache(): List<Post> {
+        return postEntityDao.getAll()
+    }
+
 
 }
